@@ -1,0 +1,15 @@
+
+
+Right now if a typo correction to the title of a story is made, that story is republished as if it were a brand-new story. Could maybe check for small changes especially if page number and/or story are the same.
+
+Right now, an updated story will just be printed to the console and not be republished, which is the right behaviour most of the time because usually it's just a small typo correction. We could however maybe check if the change is big and if so then republish the story with a note that it was updated.
+    "This following story was published before, but it has since been updated with significant changes:"
+        Or the equivalent in Dutch!
+
+Make the browser headless
+
+Move everything to the cloud and run every 5 minutes or so.
+    Or: keep using the same browser and continually keep running the loop.
+
+Before publishing to telegram, format the title (.,?!;:) (same way as story)
+Make the title in the telegram post bold
