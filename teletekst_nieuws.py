@@ -6,6 +6,7 @@ import time
 import requests
 import json
 import jellyfish
+import snapshot
 
 from story import Story
 from logging.handlers import TimedRotatingFileHandler
@@ -13,11 +14,14 @@ from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException, NoSuchElementException
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.remote_connection import LOGGER as SELENIUM_LOGGER
+from urllib3.connectionpool import log as urllib_logger
 from shutil import which, move
 
 
 # todo: handle multiple "kort nieuws binnenland/buitenland" stories. (list in dict?)
 # todo: handle number formatting (no added space) (*N.NNN* and *N,N*)
+# todo: every archive size number of snapshots make a meta snapshot of the last archive to check old stories
 # todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts.
 #  for reddit it might be preferable to edit over repost even if the change is major!
 # todo: add reddit publisher bot
@@ -31,6 +35,7 @@ from shutil import which, move
 
 # todo: everything to the cloud (google?) (automatically pick up the code from github)
 
+publish_all = False
 ROLLING_SNAPSHOTS_WINDOW_SIZE = 1000
 SNAPSHOTS_ARCHIVE_SIZE = 1000
 SELECTOR_NEXT = ".next"
@@ -41,7 +46,6 @@ TELEGRAM_TEST_TTBOT_TOKEN = os.environ.get("TELEGRAM_TEST_TTBOT_TOKEN")
 # https://api.telegram.org/bot[BOT_API_KEY]/[methodName]
 TELEGRAM_API_URL = "https://api.telegram.org/bot{}/".format(TELEGRAM_TEST_TTBOT_TOKEN)
 TELEGRAM_CHAT_ID = "@teletekst_test1"
-# CYCLE_SLEEP_SECONDS = 5
 LEVENSHTEIN_DISTANCE_THRESHOLD = 20
 
 
@@ -52,14 +56,15 @@ def main():
     options = Options()
     options.headless = True
     options.binary = which("firefox")
+    SELENIUM_LOGGER.setLevel(logging.WARNING)
+    urllib_logger.setLevel(logging.WARNING)
+    options.log.level = "warn"
     browser = webdriver.Firefox(options=options)
     cycle_counter = 0
     while True:
         cycle_counter += 1
         log(f"Cycle {cycle_counter}...")
         bot_cycle(browser)
-        # log(f"Sleeping for {CYCLE_SLEEP_SECONDS} seconds...")
-        # time.sleep(CYCLE_SLEEP_SECONDS)
 
     # log("########## END ##########\n")
 
@@ -67,7 +72,7 @@ def main():
 def set_up_logging():
     log_formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
 
     os.makedirs("logs", exist_ok=True)
     # log_file_name = f"logs/{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
@@ -77,10 +82,12 @@ def set_up_logging():
     file_handler = logging.handlers.TimedRotatingFileHandler(log_file_name, when="midnight", interval=1)
     file_handler.suffix = "%Y%m%d"
     file_handler.setFormatter(log_formatter)
+    file_handler.setLevel(logging.DEBUG)
     root_logger.addHandler(file_handler)
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
+    console_handler.setLevel(logging.INFO)
     root_logger.addHandler(console_handler)
 
 
@@ -89,41 +96,50 @@ def log(message):
 
 
 def bot_cycle(browser):  # todo: tests and make flow more readable (extract functions, add comments)
+    global publish_all
+
     snapshots = os.listdir("snapshots")
     if len(snapshots) > (SNAPSHOTS_ARCHIVE_SIZE + ROLLING_SNAPSHOTS_WINDOW_SIZE):
         archive_old_snapshots(snapshots)
 
-    previously_scraped_stories = get_merged_snapshots()
-    fresh_snapshot = scrape_snapshot(browser)
-    save_stories(fresh_snapshot)
-    log(f"{len(fresh_snapshot)=}")
-    if fresh_snapshot == previously_scraped_stories:
-        log("No new stories: fresh_snapshot == previously_scraped_stories")
+    previously_scraped_stories = get_merged_title_body_map()
+    fresh_snapshot_obj = scrape_snapshot(browser)
+    fresh_title_body_map = fresh_snapshot_obj.get_title_body_map()
+    save_stories(fresh_title_body_map)
+    log(f"{len(fresh_title_body_map)=}")
+    if publish_all:
+        for new_title, new_body in fresh_title_body_map.items():
+            publish_story(new_title, new_body)
+        publish_all = False
+        return
+    if fresh_title_body_map == previously_scraped_stories:
+        log("No new stories: fresh_title_body_map == previously_scraped_stories")
     else:  # not identical
-        if is_subset(fresh_snapshot, previously_scraped_stories):
-            log("No new stories: is_subset(fresh_snapshot, previously_scraped_stories)")
-        for new_title, new_body in fresh_snapshot.items():
-            if new_title not in previously_scraped_stories:
-                for old_title, old_body in previously_scraped_stories.items():
-                    if new_body == old_body:
-                        log(f"{new_title} is a duplicate of {old_title}")
-                        break
-                    else:
+        if is_subset(fresh_title_body_map, previously_scraped_stories):
+            log("No new stories: is_subset(fresh_title_body_map, previously_scraped_stories)")
+        else:  # not subset
+            for new_title, new_body in fresh_title_body_map.items():
+                if new_title not in previously_scraped_stories:
+                    for old_title, old_body in previously_scraped_stories.items():
+                        if new_body == old_body:
+                            log(f"{new_title} is a duplicate of {old_title}")
+                            break
+                        else:
+                            ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
+                            if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
+                                log(f"{new_title} is a minor update from {old_title} ({ls_dist=})")
+                                break
+                    log(f"New story: {new_title}")
+                    publish_story(new_title, new_body)
+                else:  # new_title in previously_scraped_stories
+                    old_body = previously_scraped_stories[new_title]
+                    if new_body != old_body:
                         ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
                         if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
-                            log(f"{new_title} is a minor update from {old_title} ({ls_dist=})")
-                            break
-                log(f"New story: {new_title}")
-                publish_story(new_title, new_body)
-            else:  # new_title in previously_scraped_stories
-                old_body = previously_scraped_stories[new_title]
-                if new_body != old_body:
-                    ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
-                    if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
-                        log(f"{new_title} got a minor update ({ls_dist=})")
-                    else:
-                        log(f"{new_title} got a major update ({ls_dist=})")
-                        publish_story(new_title + " (update)", new_body)
+                            log(f"{new_title} got a minor update ({ls_dist=})")
+                        else:
+                            log(f"{new_title} got a major update ({ls_dist=})")
+                            publish_story(new_title + " (update)", new_body + f"\n\n{ls_dist=}")
 
 
 def archive_old_snapshots(snapshots: list[str]):
@@ -135,72 +151,117 @@ def archive_old_snapshots(snapshots: list[str]):
         move(f"snapshots/{file}", f"snapshots_archive/{time_string}/{file}")
 
 
-def scrape_snapshot(browser) -> dict:  # todo: refactor
-    log("Scraping stories...")
-    page = 190
-    browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
-    time.sleep(0.5)
-    tries = 0
-    while page == 190:
-        tries += 1
-        if tries % 10 == 0:
-            logging.warning(f"{tries=}, {page=}")
-            browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
-            time.sleep(0.5)
-        try:
-            page = int(browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_PAGE).text)
-        except NoSuchElementException:
-            log("NoSuchElementException")
-        except StaleElementReferenceException:
-            log("StaleElementReferenceException")
-        if page == 190:
-            print("Page is 190")
-            time.sleep(0.1)
-    all_stories_dict = {}
-    new_stories = []
+def scrape_snapshot(browser) -> snapshot:  # todo: refactor
+    fresh_snapshot_obj = snapshot.Snapshot()
+    page = load_first_page(browser)
+
+    # getting the stories
     while page < 200:
         logging.debug(f"{page=}")
         print(f"{page}", end=".")
         dots = 1
-        try:
-            text = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_CONTENT).text
-        except StaleElementReferenceException:
-            log("StaleElementReferenceException")
+        text = try_get_text(browser)
+        if not text:
             time.sleep(0.1)
             continue
         story = Story(raw_text=text, page=page)
-        all_stories_dict[story.title] = story.body
-        new_stories.append(story)
+        fresh_snapshot_obj.add_story(story)
 
         next_button = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_NEXT)
         next_page = int(next_button.get_attribute("href").split("#")[1])
         if next_page >= 200:
             print("done")
             log(f"{next_page=}, breaking out of next page looping...")
-            story_count = len(all_stories_dict)
-            if story_count <= 1:
-                logging.error(f"{next_page=} while {story_count=}!")
+            unique_story_count = fresh_snapshot_obj.get_unique_story_count()
+            if unique_story_count <= 1:
+                logging.error(f"{next_page=} while {unique_story_count=}!")
             break
+
         next_button.click()
         time.sleep(0.1)
         prev_page = page
         while page == prev_page:
-            try:
-                page = int(browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_PAGE).text)
-            except StaleElementReferenceException:
-                # log("StaleElementReferenceException")
-                pass
-            if page == prev_page:
-                print(".", end="")
-                dots += 1
-                if dots % 20 == 0:
-                    logging.warning(f"{dots=}, {page=}")
-                    next_button = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_NEXT)
-                    next_button.click()
-                time.sleep(0.1)
-    if len(all_stories_dict) < 1:
+            page = load_next_page(browser, dots, page, prev_page)
+
+    # finalizing the scraping process
+    if fresh_snapshot_obj.get_unique_story_count() < 1:
         logging.error("No stories found!")
-    return all_stories_dict
+    return fresh_snapshot_obj
+
+
+def load_first_page(browser):
+    log("Scraping stories...")
+    page = 190
+    browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
+    time.sleep(0.5)
+    tries = 0
+    while page >= 190:
+        page = poll_for_first_page_load(browser, page, tries)
+    return page
+
+
+def load_next_page(browser, dots, page, prev_page):
+    page = try_get_page(browser, page)
+    if page == prev_page:
+        print(".", end="")
+        dots += 1
+        if dots % 200 == 0:
+            logging.error(f"{dots=}, {page=}")
+            log(f"Reloading the first story page... ({START_FROM_PAGE=})")
+            browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
+            time.sleep(0.5)
+            dots = 0
+        if dots % 20 == 0:
+            logging.warning(f"{dots=}, {page=}")
+            try_click_next(browser, page)
+        time.sleep(0.1)
+    return page
+
+
+def try_click_next(browser, page):
+    try:
+        next_button = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_NEXT)
+        next_button.click()
+    except NoSuchElementException:
+        logging.error("NoSuchElementException")
+        log(f"Reloading the page... ({page=})")
+        browser.get(f"https://nos.nl/teletekst#{page}")
+        time.sleep(0.5)
+
+
+def poll_for_first_page_load(browser, page, tries):
+    tries += 1
+    if tries % 10 == 0:
+        logging.warning(f"{tries=}, {page=}")
+        browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
+        time.sleep(0.5)
+    page = try_get_page(browser, page)
+    if page >= 190:
+        print(f"{page=}")
+        time.sleep(0.1)
+    return page
+
+
+def try_get_text(browser):
+    text = None
+    try:
+        text = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_CONTENT).text
+    except StaleElementReferenceException:
+        log("StaleElementReferenceException")
+    return text
+
+
+def try_get_page(browser, page):
+    try:
+        elem = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_PAGE)
+        page = int(elem.text)
+    except StaleElementReferenceException:
+        print("E", end="\n")
+        logging.debug("StaleElementReferenceException")
+    except NoSuchElementException:
+        print("E", end="\n")
+        logging.info("NoSuchElementException")
+    return page
 
 
 def is_subset(newly_scraped_stories: dict, previously_scraped_stories: dict):
@@ -282,12 +343,12 @@ def load_snapshot_by_sorted_files_index(index: int) -> dict:
     return saved_stories
 
 
-def get_merged_snapshots() -> dict:
-    snapshots = load_list_of_last_story_snapshots(ROLLING_SNAPSHOTS_WINDOW_SIZE)
-    merged_snapshots = {}
-    for snapshot in snapshots:
-        merged_snapshots.update(snapshot)
-    return merged_snapshots
+def get_merged_title_body_map() -> dict:
+    title_body_maps = load_list_of_last_story_snapshots(ROLLING_SNAPSHOTS_WINDOW_SIZE)
+    merged_title_body_map = {}
+    for title_body_map in title_body_maps:
+        merged_title_body_map.update(title_body_map)
+    return merged_title_body_map
 
 
 def load_list_of_last_story_snapshots(how_many_if_available: int) -> list:
