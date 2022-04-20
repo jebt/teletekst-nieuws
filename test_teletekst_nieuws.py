@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-target = __import__('teletekst_nieuws').transform_to_normal_format
+target = __import__('teletekst_nieuws_lib').transform_to_normal_format
 
 
 class Test(TestCase):

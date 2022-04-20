@@ -4,13 +4,12 @@ import selenium
 
 from constants import START_FROM_PAGE, SELECTOR_NEXT
 from page_loader import PageLoader
+from publisher import Publisher
 from setup_logger import logger, log
 import os
 import datetime
 import time
-import requests
 import json
-import jellyfish
 import snapshot
 
 from story import Story
@@ -23,33 +22,29 @@ from urllib3.connectionpool import log as urllib_logger
 from shutil import which, move
 
 # todo: handle multiple "kort nieuws binnenland/buitenland" stories. (list in dict?)
+# todo: swap files system for database (sqlite)
 # todo: every archive size number of snapshots make a meta snapshot of the last archive to check old stories
 #  then we can use the last archive(s) plus the pre-archive to make the merged dict to check against and we don't
 #  have to keep extra dicts in the fresh folder.
 # todo: make the merged dict based on time instead of count (e.g. all (meta-)dicts from within the last 48 hours)
 # todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts.
-#  for reddit it might be preferable to edit over repost even if the change is major!
-# todo: add reddit publisher bot
+#  for reddit it might be preferable to edit over repost even if the change is major! for telegram the levenshtein
+#  distance threshold for major changes could be raised along with this.
+# todo: add reddit publisher bot in it's own sub
 # todo: break up into classes/modules and make more object oriented
 
-# todo: looks like the scraping is getting slower over time, the longer the program runs. Make the browser headless and
-#  restart it every cycle or once every few cycles. Interestingly, if the browser window is brought to focus the
-#  scraping seems to be fast again but immediately comes to a crawl when the window is in the background again.
-
-# todo: remove and/or shorten the sleep times.
+# todo: lengthen the sleep times.
 
 # todo: everything to the cloud (google?) (automatically pick up the code from github)
 
+# todo: if every essential feature and bugfixes are done and the bot is running in the cloud smoothly for a while,
+#  create new telegram channel and identity for the bot and invite people.
+
 abort = False
-publish_all = False
+publish_all_current = False
 ROLLING_SNAPSHOTS_WINDOW_SIZE = 1000
 SNAPSHOTS_ARCHIVE_SIZE = 1000
 SELECTOR_CONTENT = "#teletekst > div.teletekst__content.js-tt-content > pre"
-TELEGRAM_TEST_TTBOT_TOKEN = os.environ.get("TELEGRAM_TEST_TTBOT_TOKEN")
-# https://api.telegram.org/bot[BOT_API_KEY]/[methodName]
-TELEGRAM_API_URL = "https://api.telegram.org/bot{}/".format(TELEGRAM_TEST_TTBOT_TOKEN)
-TELEGRAM_CHAT_ID = "@teletekst_test1"
-LEVENSHTEIN_DISTANCE_THRESHOLD = 20
 
 
 def main():
@@ -78,51 +73,28 @@ def get_browser():
 
 
 def bot_cycle(browser):  # todo: tests and make flow more readable (extract functions, add comments)
-    global publish_all
+    global publish_all_current
 
+    # data operations
     snapshots = os.listdir("snapshots")
     if len(snapshots) > (SNAPSHOTS_ARCHIVE_SIZE + ROLLING_SNAPSHOTS_WINDOW_SIZE):
         archive_old_snapshots(snapshots)
 
     previously_scraped_stories = get_merged_title_body_map()
+
+    # scraping
     fresh_snapshot_obj = scrape_snapshot(browser)
     fresh_title_body_map = fresh_snapshot_obj.get_title_body_map()
     save_stories(fresh_title_body_map)
     log(f"{len(fresh_title_body_map)=}")
-    if publish_all:
-        for new_title, new_body in fresh_title_body_map.items():
-            publish_story(new_title, new_body)
-        publish_all = False
-        return
-    if fresh_title_body_map == previously_scraped_stories:
-        log("No new stories: fresh_title_body_map == previously_scraped_stories")
-    else:  # not identical
-        if is_subset(fresh_title_body_map, previously_scraped_stories):
-            log("No new stories: is_subset(fresh_title_body_map, previously_scraped_stories)")
-        else:  # not subset
-            for new_title, new_body in fresh_title_body_map.items():
-                if new_title not in previously_scraped_stories:
-                    for old_title, old_body in previously_scraped_stories.items():
-                        if new_body == old_body:
-                            log(f"{new_title} is a duplicate of {old_title}")
-                            break
-                        else:
-                            ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
-                            if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
-                                log(f"{new_title} is a minor update from {old_title} ({ls_dist=})")
-                                break
-                    log(f"New story: {new_title}")
-                    publish_story(new_title, new_body)
-                else:  # new_title in previously_scraped_stories
-                    old_body = previously_scraped_stories[new_title]
-                    if new_body != old_body:
-                        ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
-                        if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
-                            log(f"{new_title} got a minor update ({ls_dist=})")
-                        else:
-                            log(f"{new_title} got a major update ({ls_dist=})")
-                            publish_story(new_title + " (update)",
-                                          new_body + f"\n\n(Levenshtein distance: {ls_dist} operations)")
+
+    # publishing
+    publisher = Publisher(previously_scraped_stories, fresh_snapshot_obj)
+    if publish_all_current:
+        publisher.publish(scope="current")
+        publish_all_current = False
+    else:
+        publisher.publish(scope="new_and_major_updates")
 
 
 def archive_old_snapshots(snapshots: list[str]):
@@ -154,7 +126,7 @@ def scrape_snapshot(browser) -> snapshot:  # todo: refactor
         if next_page >= 200:
             print("done")
             log(f"{next_page=}, breaking out of next page looping...")
-            unique_story_count = fresh_snapshot_obj.get_unique_story_count()
+            unique_story_count = fresh_snapshot_obj.get_unique_title_count()
             if unique_story_count <= 1:
                 logging.error(f"{next_page=} while {unique_story_count=}!")
             break
@@ -168,7 +140,7 @@ def scrape_snapshot(browser) -> snapshot:  # todo: refactor
         page = page_loader.page
 
     # finalizing the scraping process
-    if fresh_snapshot_obj.get_unique_story_count() < 1:
+    if fresh_snapshot_obj.get_unique_title_count() < 1:
         logging.error("No stories found!")
     return fresh_snapshot_obj
 
@@ -208,112 +180,6 @@ def try_get_text(browser):
     except StaleElementReferenceException:
         log("StaleElementReferenceException")
     return text
-
-
-def is_subset(newly_scraped_stories: dict, previously_scraped_stories: dict):
-    for new_title, new_story in newly_scraped_stories.items():
-        if new_title not in previously_scraped_stories:
-            return False
-        else:
-            old_story = previously_scraped_stories[new_title]
-            if new_story != old_story:
-                return False
-    return True
-
-
-def transform_to_normal_format(tt_format_text: str) -> str:
-    def is_closing_quote(char, index, text):
-        assert char == text[index] and char in ["'", '"']
-        text_so_far = text[:index]
-        if text_so_far.count(char) % 2 == 1:
-            return True
-        return False
-
-    lines = tt_format_text.split("\n")
-    for i, line in enumerate(lines):
-        if line.strip() == "":
-            lines[i] = "\n\n"
-        else:
-            lines[i] = line.strip() + " "
-    compact_text = "".join(lines)
-    new_text = compact_text
-    correction_counter = 0
-    for i, character in enumerate(compact_text):
-        numbers = "0123456789"
-        if i == 0:
-            continue
-        # ignore . in "..."
-        if character == "." and compact_text[i + 1] == ".":
-            continue
-        # ignore . in big numbers
-        if character == "." and (compact_text[i - 1] in numbers and
-                                 compact_text[i + 1] in numbers and  # these do not go out of bounds because there is
-                                 compact_text[i + 2] in numbers and  # an added space at the end and the rest does not
-                                 compact_text[i + 3] in numbers):    # get evaluated
-            continue
-        # ignore , in decimal numbers
-        elif character == "," and (compact_text[i - 1] in numbers and
-                                   compact_text[i + 1] in numbers):
-            continue
-        # ignore . and ! and ? when followed by closing ' or "
-        elif character in ".!?" and (compact_text[i + 1] in "'\"" and
-                                     is_closing_quote(compact_text[i + 1], i + 1, compact_text)):
-            continue
-        elif character in ".,!?;:" and compact_text[i + 1].strip() != "":
-            correction_counter += 1
-            new_text = new_text[:i + correction_counter] + " " + compact_text[i + 1:]
-
-    # remove the spaces at the end of the lines
-    new_lines = new_text.splitlines()
-    for i, line in enumerate(new_lines):
-        if len(line) > 0 and line[-1] == " ":
-            new_lines[i] = line.strip()
-    new_text = "\n".join(new_lines)
-    new_text = new_text.strip()
-    return new_text
-
-
-def publish_story(title: str, story: str):
-    formatted_story = transform_to_normal_format(story)
-    formatted_title = transform_to_normal_format(title)
-
-    log(f"Publishing to telegram: {title}")
-    publish_to_telegram(formatted_title, formatted_story)
-    # publish_to_reddit(title, story)
-
-    # publish_to_portfolio_website(title, story)
-
-    # publish_to_twitter(title, story)
-    # publish_to_facebook(title, story)
-    # publish_to_instagram(title, story)
-    # publish_to_linkedin(title, story)
-    # publish_to_youtube(title, story)
-    # publish_to_pinterest(title, story)
-    # publish_to_tumblr(title, story)
-    # publish_to_wordpress(title, story)
-    # publish_to_medium(title, story)
-    # publish_to_slack(title, story)
-    # publish_to_discord(title, story)
-    # publish_to_whatsapp(title, story)
-    # publish_to_github_pages(title, story)
-    # RSS???
-    # Webhooks???
-
-
-def publish_to_telegram(title: str, story: str):
-    try:
-        send_to_telegram_channel(f"<b><u>{title}</u></b>\n\n{story}")
-    except requests.exceptions.SSLError as e:
-        logger.error(f"Error while publishing to Telegram: {e}")
-
-
-def send_to_telegram_channel(message: str):
-    response = requests.get(TELEGRAM_API_URL + "sendMessage", params={
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML",
-    })
-    response.raise_for_status()
 
 
 def load_snapshot_by_sorted_files_index(index: int) -> dict:

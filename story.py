@@ -1,9 +1,14 @@
+from teletekst_nieuws_lib import transform_to_normal_format
+
+
 class Story:
     def __init__(self, raw_text, page):
         self._raw_text = raw_text
         self.page = page
         self.title = self.extract_title()
         self.body = self.extract_body()
+        self.formatted_title = transform_to_normal_format(self.title)
+        self.formatted_body = transform_to_normal_format(self.body)
 
     def extract_title(self):
         title = self._raw_text.split(""
