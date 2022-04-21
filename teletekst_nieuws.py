@@ -13,66 +13,44 @@ import json
 import snapshot
 
 from story import Story
-from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
-from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.remote_connection import LOGGER as SELENIUM_LOGGER
-from urllib3.connectionpool import log as urllib_logger
-from shutil import which, move
-
-# todo: handle multiple "kort nieuws binnenland/buitenland" stories. (list in dict?)
-# todo: swap files system for database (sqlite)
-# todo: every archive size number of snapshots make a meta snapshot of the last archive to check old stories
-#  then we can use the last archive(s) plus the pre-archive to make the merged dict to check against and we don't
-#  have to keep extra dicts in the fresh folder.
-# todo: make the merged dict based on time instead of count (e.g. all (meta-)dicts from within the last 48 hours)
-# todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts.
-#  for reddit it might be preferable to edit over repost even if the change is major! for telegram the levenshtein
-#  distance threshold for major changes could be raised along with this.
-# todo: add reddit publisher bot in it's own sub
-# todo: break up into classes/modules and make more object oriented
-
-# todo: lengthen the sleep times.
-
-# todo: everything to the cloud (google?) (automatically pick up the code from github)
-
-# todo: if every essential feature and bugfixes are done and the bot is running in the cloud smoothly for a while,
-#  create new telegram channel and identity for the bot and invite people.
+from shutil import move
+from teletekst_nieuws_lib import get_new_browser
 
 abort = False
 publish_all_current = False
+browser = get_new_browser()
 ROLLING_SNAPSHOTS_WINDOW_SIZE = 1000
 SNAPSHOTS_ARCHIVE_SIZE = 1000
 SELECTOR_CONTENT = "#teletekst > div.teletekst__content.js-tt-content > pre"
+RESTART_BROWSER_AFTER_CYCLES = 1000  # todo: make time based (once a day at 03:00 NL time?)
 
 
 def main():
-    global abort
     log("########## START ##########\n")
 
-    browser = get_browser()
     cycle_counter = 0
     while not abort:
         cycle_counter += 1
+        if cycle_counter % RESTART_BROWSER_AFTER_CYCLES == 0:  # todo: make time based (once a day at 03:00 NL time?)
+            restart_browser()
         log(f"Cycle {cycle_counter}...")
-        bot_cycle(browser)
+        bot_cycle()
 
-    browser.quit()
+    if browser is not None:
+        browser.quit()
     log("########## END ##########\n")
 
 
-def get_browser():
-    options = Options()
-    options.headless = True
-    options.binary = which("firefox")
-    SELENIUM_LOGGER.setLevel(logging.WARNING)
-    urllib_logger.setLevel(logging.WARNING)
-    browser = webdriver.Firefox(options=options)
-    return browser
+def restart_browser():
+    global browser
+    if browser is not None:
+        browser.quit()
+    browser = get_new_browser()
 
 
-def bot_cycle(browser):  # todo: tests and make flow more readable (extract functions, add comments)
+def bot_cycle():  # todo: tests and make flow more readable (extract functions, add comments)
     global publish_all_current
 
     # data operations
@@ -83,7 +61,7 @@ def bot_cycle(browser):  # todo: tests and make flow more readable (extract func
     previously_scraped_stories = get_merged_title_body_map()
 
     # scraping
-    fresh_snapshot_obj = scrape_snapshot(browser)
+    fresh_snapshot_obj = scrape_snapshot()
     fresh_title_body_map = fresh_snapshot_obj.get_title_body_map()
     save_stories(fresh_title_body_map)
     log(f"{len(fresh_title_body_map)=}")
@@ -106,15 +84,15 @@ def archive_old_snapshots(snapshots: list[str]):
         move(f"snapshots/{file}", f"snapshots_archive/{time_string}/{file}")
 
 
-def scrape_snapshot(browser) -> snapshot:  # todo: refactor
+def scrape_snapshot() -> snapshot:  # todo: refactor
     fresh_snapshot_obj = snapshot.Snapshot()
-    page = load_first_page(browser)
+    page = load_first_page()
 
     # getting the stories
     while page < 200:
         logging.debug(f"{page=}")
         print(f"{page}", end=".")
-        text = try_get_text(browser)
+        text = try_get_text()
         if not text:
             time.sleep(0.1)
             continue
@@ -136,7 +114,6 @@ def scrape_snapshot(browser) -> snapshot:  # todo: refactor
         page_loader = PageLoader(browser, page)
         while page_loader.page == page_loader.prev_page:
             page_loader.load_next_page()
-
         page = page_loader.page
 
     # finalizing the scraping process
@@ -145,7 +122,7 @@ def scrape_snapshot(browser) -> snapshot:  # todo: refactor
     return fresh_snapshot_obj
 
 
-def load_first_page(browser):
+def load_first_page():
     log("Scraping stories...")
     page = 190
     try:
@@ -156,14 +133,21 @@ def load_first_page(browser):
     first_page_load_poll_tries = 0
     while page >= 190:
         first_page_load_poll_tries += 1  # don't start at 0 because of modulo check
-        page = poll_for_first_page_load(browser, page, first_page_load_poll_tries)
+        page = poll_for_first_page_load(page, first_page_load_poll_tries)
     return page
 
 
-def poll_for_first_page_load(browser, page, polling_tries):
+def poll_for_first_page_load(page: int, polling_tries: int):
+    if polling_tries % 1000 == 0:
+        logger.error(f"{polling_tries=}. Restarting browser...")
+        restart_browser()
+
     if polling_tries % 10 == 0:
-        logging.warning(f"{polling_tries=}, {page=}, getting {START_FROM_PAGE}...")
-        browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
+        logger.warning(f"{polling_tries=}, {page=}, getting {START_FROM_PAGE}...")
+        try:
+            browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
+        except selenium.common.exceptions.WebDriverException as e:
+            logger.error(f"Could not load page! {e}")
         time.sleep(1)
     page_loader = PageLoader(browser, page)
     page_loader.try_get_page()
@@ -173,7 +157,7 @@ def poll_for_first_page_load(browser, page, polling_tries):
     return page_loader.page
 
 
-def try_get_text(browser):
+def try_get_text():
     text = None
     try:
         text = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_CONTENT).text

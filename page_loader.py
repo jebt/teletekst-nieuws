@@ -31,20 +31,23 @@ class PageLoader:
     def try_get_page(self):
         try:
             elem = self.browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_PAGE)
-            self.page = int(elem.text)
-        except StaleElementReferenceException:
-            print("E", end="\n")
-            logger.debug("StaleElementReferenceException")
         except NoSuchElementException:
             print("E", end="\n")
-            logger.warning("NoSuchElementException")
+            logger.warn("NoSuchElementException")
+        else:
+            try:
+                self.page = int(elem.text)
+            except StaleElementReferenceException:
+                print("E", end="\n")
+                logger.debug("StaleElementReferenceException")
 
     def try_click_next(self):
         try:
             next_button = self.browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_NEXT)
-            next_button.click()
         except NoSuchElementException:
-            logger.error("NoSuchElementException")
-            log(f"Reloading the page... ({self.page=})")
-            self.browser.get(f"https://nos.nl/teletekst#{self.page}")
-            sleep(0.5)
+            logger.warn("NoSuchElementException")
+        else:
+            try:
+                next_button.click()
+            except StaleElementReferenceException:
+                logger.warn("StaleElementReferenceException")

@@ -1,15 +1,14 @@
+TODOS:
+# todo: handle multiple "kort nieuws binnenland/buitenland" stories. (list in dict?)
+# todo: swap files system for database (sqlite)
+# todo: every archive size number of snapshots make a meta snapshot of the last archive to check old stories then we can use the last archive(s) plus the pre-archive to make the merged dict to check against and we don't have to keep extra dicts in the fresh folder.
+# todo: make the merged dict based on time instead of count (e.g. all (meta-)dicts from within the last 48 hours)
+# todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts. for reddit it might be preferable to edit over repost even if the change is major! for telegram the levenshtein distance threshold for major changes could be raised along with this.
+# todo: add reddit publisher bot in it's own sub
+# todo: break up into classes/modules and make more object oriented
 
+# todo: lengthen the sleep times.
 
-Right now if a typo correction to the title of a story is made, that story is republished as if it were a brand-new story. Could maybe check for small changes especially if page number and/or story are the same.
+# todo: everything to the cloud (google?) (automatically pick up the code from github)
 
-Right now, an updated story will just be printed to the console and not be republished, which is the right behaviour most of the time because usually it's just a small typo correction. We could however maybe check if the change is big and if so then republish the story with a note that it was updated.
-    "This following story was published before, but it has since been updated with significant changes:"
-        Or the equivalent in Dutch!
-
-Make the browser headless
-
-Move everything to the cloud and run every 5 minutes or so.
-    Or: keep using the same browser and continually keep running the loop.
-
-Before publishing to telegram, format the title (.,?!;:) (same way as story)
-Make the title in the telegram post bold
+# todo: if every essential feature and bugfixes are done and the bot is running in the cloud smoothly for a while, create new telegram channel and identity for the bot and invite people.

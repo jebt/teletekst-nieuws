@@ -4,7 +4,8 @@ class Snapshot:
         self.stories = []
 
     def add_story(self, story):
-        self.stories.append(story)
+        if story.title not in self.title_body_map:  # prevent duplicates
+            self.stories.append(story)
         self.title_body_map[story.title] = story.body
 
     def get_title_body_map(self):

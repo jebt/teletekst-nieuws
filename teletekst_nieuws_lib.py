@@ -1,3 +1,23 @@
+from setup_logger import log
+
+
+def get_new_browser():
+    log("Instantiating new headless firefox browser...")
+    from selenium.webdriver.firefox.options import Options
+    from selenium.webdriver.remote.remote_connection import LOGGER as SELENIUM_LOGGER
+    from urllib3.connectionpool import log as urllib_logger
+    from shutil import which
+    from selenium import webdriver
+    from logging import WARNING
+    options = Options()
+    options.headless = True
+    options.binary = which("firefox")
+    SELENIUM_LOGGER.setLevel(WARNING)
+    urllib_logger.setLevel(WARNING)
+    new_browser = webdriver.Firefox(options=options)
+    return new_browser
+
+
 def is_subset(newly_scraped_stories: dict, previously_scraped_stories: dict):
     for new_title, new_story in newly_scraped_stories.items():
         if new_title not in previously_scraped_stories:
@@ -39,14 +59,36 @@ def transform_to_normal_format(tt_format_text: str) -> str:
                                  compact_text[i + 2] in numbers and  # an added space at the end and the rest does not
                                  compact_text[i + 3] in numbers):    # get evaluated
             continue
+        # ignore . in .nl, .com, .net, .org, .eu, .be
+        if character == "." and (
+                (compact_text[i + 1] == 'n' and
+                 compact_text[i + 2] == 'l') or
+                (compact_text[i + 1] == 'c' and
+                 compact_text[i + 2] == 'o' and
+                 compact_text[i + 3] == 'm') or
+                (compact_text[i + 1] == 'n' and
+                 compact_text[i + 2] == 'e' and
+                 compact_text[i + 3] == 't') or
+                (compact_text[i + 1] == 'o' and
+                 compact_text[i + 2] == 'r' and
+                 compact_text[i + 3] == 'g') or
+                (compact_text[i + 1] == 'e' and
+                 compact_text[i + 2] == 'u') or
+                (compact_text[i + 1] == 'b' and
+                 compact_text[i + 2] == 'e')):
+            continue
+
         # ignore , in decimal numbers
         elif character == "," and (compact_text[i - 1] in numbers and
                                    compact_text[i + 1] in numbers):
             continue
+
         # ignore . and ! and ? when followed by closing ' or "
         elif character in ".!?" and (compact_text[i + 1] in "'\"" and
                                      is_closing_quote(compact_text[i + 1], i + 1, compact_text)):
             continue
+
+        # put in a space after .,!?;: if followed by something other than whitespace
         elif character in ".,!?;:" and compact_text[i + 1].strip() != "":
             correction_counter += 1
             new_text = new_text[:i + correction_counter] + " " + compact_text[i + 1:]
