@@ -78,18 +78,28 @@ class Publisher:
                 for story in self.fresh_snapshot_obj.get_stories():
                     new_title = story.title
                     new_body = story.body
+                    if "kort nieuws" in new_title.lower():
+                        if new_body in previously_scraped_stories:
+                            continue
+                    duplicate = False
+                    minor_update = False
                     if new_title not in previously_scraped_stories:
                         for old_title, old_body in previously_scraped_stories.items():
                             if new_body == old_body:
                                 log(f"{new_title} is a duplicate of {old_title}")
+                                duplicate = True
                                 break
-                            else:
+                            else:  # not a duplicate
                                 ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
                                 if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
                                     log(f"{new_title} is a minor update from {old_title} ({ls_dist=})")
+                                    minor_update = True
                                     break
-                        log(f"New story: {new_title}")
-                        self.dispatch_new(story)
+                                else:  # not a minor update
+                                    pass  # todo: should we implement a way to detect a major update on a short story?
+                        if not duplicate and not minor_update:
+                            log(f"New story: {new_title}")
+                            self.dispatch_new(story)
                     else:  # new_title in previously_scraped_stories
                         old_body = previously_scraped_stories[new_title]
                         if new_body != old_body:

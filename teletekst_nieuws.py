@@ -11,12 +11,13 @@ import datetime
 import time
 import json
 import snapshot
+from short_story import ShortStory
 
 from story import Story
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from shutil import move
-from teletekst_nieuws_lib import get_new_browser
+from teletekst_nieuws_lib import get_new_browser, is_short_story_page, split_short_stories_text
 
 abort = False
 publish_all_current = False
@@ -90,14 +91,22 @@ def scrape_snapshot() -> snapshot:  # todo: refactor
 
     # getting the stories
     while page < 200:
+        if page < 104:
+            logger.error(f"{page=}, restarting browser...")
+            restart_browser()
+            break
         logging.debug(f"{page=}")
         print(f"{page}", end=".")
         text = try_get_text()
         if not text:
             time.sleep(0.1)
             continue
-        story = Story(raw_text=text, page=page)
-        fresh_snapshot_obj.add_story(story)
+        if is_short_story_page(text):
+            short_story_texts = split_short_stories_text(text)
+            for short_story_text in short_story_texts:
+                fresh_snapshot_obj.add_story(ShortStory(raw_text=short_story_text, page=page))
+        else:
+            fresh_snapshot_obj.add_story(Story(raw_text=text, page=page))
 
         next_button = browser.find_element(by=By.CSS_SELECTOR, value=SELECTOR_NEXT)
         next_page = int(next_button.get_attribute("href").split("#")[1])

@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-target = __import__('teletekst_nieuws_lib').transform_to_normal_format
+target = __import__('text_formatting').transform_to_normal_format
 
 
 class Test(TestCase):
@@ -17,9 +17,9 @@ class Test(TestCase):
         zus en zo, yes yes """)
         self.assertEqual("blabla: enzo; blabla, ditendat? enzo nogmaar, zus en zo, yes yes", new)
 
-    # def test_transform_to_normal_format_with_empty_string(self):
-    #     new = target("")
-    #     self.assertEqual("", new)
+    def test_transform_to_normal_format_with_empty_string(self):
+        new = target("")
+        self.assertEqual("", new)
 
     def test_transform_to_normal_format_with_big_numbers(self):
         new = target("jip.janneke 100.000 piet,456.040 paulus.")
@@ -61,3 +61,16 @@ faweefweafwef w faew aw""", new)
     def test_trans_with_opening_and_closing_quotes(self):
         new = target("hij zegt:\"Hallo!\".'Hallo!' zei hij")
         self.assertEqual("hij zegt: \"Hallo!\". 'Hallo!' zei hij", new)
+
+    def test_trans_with_word_after_closing_quote(self):
+        new = target("ze.\"En dat is terecht.\"Ze")
+        self.assertEqual('ze. "En dat is terecht." Ze', new)
+
+    # todo: the two beneath combined may be a tough cookie to crack
+    # def test_trans_with_word_after_closing_single_quote(self):
+    #     new = target("ze.'En dat is terecht.'Ze")
+    #     self.assertEqual("ze. 'En dat is terecht.' Ze", new)
+
+    def test_trans_with_apostrophe(self):
+        new = "hoe'ist nou?"
+        self.assertEqual("hoe'ist nou?", new)
