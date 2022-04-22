@@ -1,14 +1,12 @@
 TODOS:
-# todo: handle multiple "kort nieuws binnenland/buitenland" stories. (list in dict?)
 # todo: swap files system for database (sqlite)
-# todo: every archive size number of snapshots make a meta snapshot of the last archive to check old stories then we can use the last archive(s) plus the pre-archive to make the merged dict to check against and we don't have to keep extra dicts in the fresh folder.
 # todo: make the merged dict based on time instead of count (e.g. all (meta-)dicts from within the last 48 hours)
 # todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts. for reddit it might be preferable to edit over repost even if the change is major! for telegram the levenshtein distance threshold for major changes could be raised along with this.
-# todo: add reddit publisher bot in it's own sub
-# todo: break up into classes/modules and make more object oriented
+# todo: add reddit publisher bot in its own sub
+# todo: break up into classes/modules and make more object-oriented
 
 # todo: lengthen the sleep times.
 
-# todo: everything to the cloud (google?) (automatically pick up the code from github)
+# todo: everything to the cloud (google?) (automatically pick up the code from GitHub)
 
 # todo: if every essential feature and bugfixes are done and the bot is running in the cloud smoothly for a while, create new telegram channel and identity for the bot and invite people.

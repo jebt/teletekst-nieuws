@@ -60,13 +60,13 @@ class Publisher:
 
     def dispatch_update(self, story: Story, ls_dist: int):
         story.formatted_title = story.formatted_title + " (update)"
-        story.formatted_body = story.formatted_body + f"\n\n(Levenshtein distance: {ls_dist} operations)"
+        story.formatted_body = story.formatted_body + f"\n\n(Levenshtein edit distance: {ls_dist} operations)"
         for medium in self.media:
             if medium is None:
                 continue
             medium.notify(story)
 
-    def publish_new_and_major_updates(self):
+    def publish_new_and_major_updates(self):  # todo: refactor
         fresh_title_body_map = self.fresh_snapshot_obj.get_title_body_map()
         previously_scraped_stories = self.previously_scraped_stories
         if fresh_title_body_map == previously_scraped_stories:
@@ -104,7 +104,7 @@ class Publisher:
                         old_body = previously_scraped_stories[new_title]
                         if new_body != old_body:
                             ls_dist = jellyfish.levenshtein_distance(new_body, old_body)
-                            if ls_dist < LEVENSHTEIN_DISTANCE_THRESHOLD:
+                            if ls_dist <= LEVENSHTEIN_DISTANCE_THRESHOLD:
                                 log(f"{new_title} got a minor update ({ls_dist=})")
                             else:
                                 log(f"{new_title} got a major update ({ls_dist=})")

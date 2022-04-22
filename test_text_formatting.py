@@ -66,7 +66,7 @@ faweefweafwef w faew aw""", new)
         new = target("ze.\"En dat is terecht.\"Ze")
         self.assertEqual('ze. "En dat is terecht." Ze', new)
 
-    # todo: the two beneath combined may be a tough cookie to crack
+    # todo: the two beneath combined may be a tough cookie to crack?
     # def test_trans_with_word_after_closing_single_quote(self):
     #     new = target("ze.'En dat is terecht.'Ze")
     #     self.assertEqual("ze. 'En dat is terecht.' Ze", new)

@@ -8,5 +8,4 @@ class Medium(ABC):
         pass
 
     @abstractmethod
-    def notify(self, story: Story):
-        pass
+    def notify(self, story: Story): ...

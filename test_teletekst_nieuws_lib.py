@@ -1,4 +1,4 @@
-from unittest import TestCase
+# from unittest import TestCase
 
 target = __import__('teletekst_nieuws_lib').split_short_stories_text
 

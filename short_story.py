@@ -6,4 +6,4 @@ class ShortStory(Story):
         super().__init__(raw_text, page)
 
     # title should be Kort nieuws binnenland or Kort nieuws buitenland
-    # Same titles are fine. We insert the body as the key and the title as value. if title contains kort nieuws
+    # the body is inserted as the key and the value in the dict if title contains kort nieuws

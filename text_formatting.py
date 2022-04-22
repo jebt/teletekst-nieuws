@@ -1,5 +1,6 @@
 
 def _is_closing_quote(char, index, text):
+    """note that the single quote sign used as an apostrophe would be misinterpreted thus this function is imperfect"""
     assert char == text[index] and char in ["'", '"']
     text_so_far = text[:index]
     if text_so_far.count(char) % 2 == 1:
@@ -7,7 +8,7 @@ def _is_closing_quote(char, index, text):
     return False
 
 
-def transform_to_normal_format(tt_format_text: str) -> str:
+def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor
     lines = tt_format_text.split("\n")
     for i, line in enumerate(lines):
         if line.strip() == "":

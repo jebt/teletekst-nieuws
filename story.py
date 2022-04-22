@@ -6,10 +6,6 @@ class Story:
         self._raw_text = raw_text
         self.page = page
         self.title = self.extract_title()
-        # if "kort nieuws" in self.title.lower():
-        #     pass
-        #     with open("raw_text_kort_nieuws.txt", "a", encoding="utf-8") as f:  # todo: remove
-        #         f.write(self._raw_text)
         self.body = self.extract_body()
         self.formatted_title = transform_to_normal_format(self.title)
         self.formatted_body = transform_to_normal_format(self.body)

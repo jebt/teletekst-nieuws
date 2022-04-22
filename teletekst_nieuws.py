@@ -16,14 +16,13 @@ from short_story import ShortStory
 from story import Story
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
-from shutil import move
 from teletekst_nieuws_lib import get_new_browser, is_short_story_page, split_short_stories_text
 
 abort = False
 publish_all_current = False
 browser = get_new_browser()
-ROLLING_SNAPSHOTS_WINDOW_SIZE = 1000
-SNAPSHOTS_ARCHIVE_SIZE = 1000
+LOAD_NUMBER_OF_MERGED_SNAPSHOTS = 5
+SNAPSHOTS_ARCHIVE_SIZE = 1000  # todo: make time based (for example daily)
 SELECTOR_CONTENT = "#teletekst > div.teletekst__content.js-tt-content > pre"
 RESTART_BROWSER_AFTER_CYCLES = 1000  # todo: make time based (once a day at 03:00 NL time?)
 
@@ -51,13 +50,13 @@ def restart_browser():
     browser = get_new_browser()
 
 
-def bot_cycle():  # todo: tests and make flow more readable (extract functions, add comments)
+def bot_cycle():
     global publish_all_current
 
     # data operations
-    snapshots = os.listdir("snapshots")
-    if len(snapshots) > (SNAPSHOTS_ARCHIVE_SIZE + ROLLING_SNAPSHOTS_WINDOW_SIZE):
-        archive_old_snapshots(snapshots)
+    snapshots = [f for f in os.listdir("snapshots") if os.path.isfile(f"snapshots/{f}")]
+    if len(snapshots) >= SNAPSHOTS_ARCHIVE_SIZE:
+        create_and_save_merged_snapshot(snapshots)
 
     previously_scraped_stories = get_merged_title_body_map()
 
@@ -76,13 +75,22 @@ def bot_cycle():  # todo: tests and make flow more readable (extract functions, 
         publisher.publish(scope="new_and_major_updates")
 
 
-def archive_old_snapshots(snapshots: list[str]):
+def create_and_save_merged_snapshot(snapshots: list[str]):
     snapshots.sort()
-    time_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-    os.makedirs(f"snapshots_archive/{time_string}", exist_ok=True)
-    for file in snapshots[:SNAPSHOTS_ARCHIVE_SIZE]:
-        # move file to new directory
-        move(f"snapshots/{file}", f"snapshots_archive/{time_string}/{file}")
+    merged_snapshot = {}
+    for ss in snapshots[:SNAPSHOTS_ARCHIVE_SIZE]:
+        with open("snapshots/" + ss) as f:
+            snapshot_data = json.load(f)
+        merged_snapshot.update(snapshot_data)
+
+    from_time = snapshots[0].split(".")[0]
+    to_time = snapshots[SNAPSHOTS_ARCHIVE_SIZE - 1].split(".")[0]
+    os.makedirs(f"snapshots/merged", exist_ok=True)
+    with open(f"snapshots/merged/{from_time} - {to_time}.json", "w") as f:
+        json.dump(merged_snapshot, f, indent=4)
+
+    for ss in snapshots[:SNAPSHOTS_ARCHIVE_SIZE]:
+        os.remove("snapshots/" + ss)
 
 
 def scrape_snapshot() -> snapshot:  # todo: refactor
@@ -175,34 +183,30 @@ def try_get_text():
     return text
 
 
-def load_snapshot_by_sorted_files_index(index: int) -> dict:
-    files = os.listdir("snapshots")
-    files.sort()
-    file = files[index]
-    with open(f"snapshots/{file}", "r") as f:
-        saved_stories = json.load(f)
-    log(f"Loaded {len(saved_stories)} stories from {file}")
-    return saved_stories
-
-
 def get_merged_title_body_map() -> dict:
-    title_body_maps = load_list_of_last_story_snapshots(ROLLING_SNAPSHOTS_WINDOW_SIZE)
+    title_body_maps = load_list_of_last_story_snapshots(LOAD_NUMBER_OF_MERGED_SNAPSHOTS)
     merged_title_body_map = {}
     for title_body_map in title_body_maps:
         merged_title_body_map.update(title_body_map)
     return merged_title_body_map
 
 
-def load_list_of_last_story_snapshots(how_many_if_available: int) -> list:
-    files = os.listdir("snapshots")
-    files.sort()
-    if len(files) > how_many_if_available:
-        files = files[-how_many_if_available:]
+def load_list_of_last_story_snapshots(how_many_merged_snapshots_if_available: int) -> list:
     snapshots = []
+    merged_files = os.listdir("snapshots/merged")
+    merged_files.sort()
+    if len(merged_files) > how_many_merged_snapshots_if_available:
+        merged_files = merged_files[-how_many_merged_snapshots_if_available:]
+    for merged_file in merged_files:
+        with open(f"snapshots/merged/{merged_file}", "r") as f:
+            snapshots.append(json.load(f))
+    log(f"Loaded {len(merged_files)} merged snapshots")
+
+    files = [f for f in os.listdir("snapshots") if os.path.isfile(f"snapshots/{f}")]
     for file in files:
         with open(f"snapshots/{file}", "r") as f:
             snapshots.append(json.load(f))
-    log(f"Loaded last {len(snapshots)} snapshots")
+    log(f"Loaded {len(files)} recent snapshots")
     return snapshots
 
 
