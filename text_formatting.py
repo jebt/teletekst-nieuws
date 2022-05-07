@@ -8,7 +8,7 @@ def _is_closing_quote(char, index, text):
     return False
 
 
-def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor
+def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor with regex and 3rd party libs?
     lines = tt_format_text.split("\n")
     for i, line in enumerate(lines):
         if line.strip() == "":
@@ -23,19 +23,19 @@ def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor
         if i == 0:
             continue
 
-        # ignore . in "..."
+        # ignore '.' in multiple dots like "..."
         if character == "." and compact_text[i + 1] == ".":
             continue
 
-        # ignore . in big numbers
+        # ignore '.' in big dot separated numbers e.g. "100.000"
         if character == "." and (compact_text[i - 1] in numbers and
                                  compact_text[i + 1] in numbers and  # these do not go out of bounds because there is
                                  compact_text[i + 2] in numbers and  # an added space at the end and the rest does not
                                  compact_text[i + 3] in numbers):    # get evaluated
             continue
 
-        # ignore . in .nl, .com, .net, .org, .eu, .be
-        if character == "." and (
+        # ignore '.' in ".nl", ".com", ".net", ".org", ".eu", ".be" websites e.g. "reddit.com"
+        if character == "." and (  # todo: replace by detection of lowercase letter after dot
                 (compact_text[i + 1] == 'n' and
                  compact_text[i + 2] == 'l') or
                 (compact_text[i + 1] == 'c' and
@@ -53,12 +53,12 @@ def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor
                  compact_text[i + 2] == 'e')):
             continue
 
-        # ignore , in decimal numbers
+        # ignore ',' in decimal numbers e.g. "0,75"
         elif character == "," and (compact_text[i - 1] in numbers and
                                    compact_text[i + 1] in numbers):
             continue
 
-        # ignore . and ! and ? when followed by closing ' or "
+        # ignore '.', '!' and '?' when followed by closing "'" or '"' quotation mark e.g. "Hello!"
         elif character in ".!?" and (compact_text[i + 1] in "'\"" and
                                      _is_closing_quote(compact_text[i + 1], i + 1, compact_text)):
             continue

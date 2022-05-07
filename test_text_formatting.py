@@ -66,11 +66,36 @@ faweefweafwef w faew aw""", new)
         new = target("ze.\"En dat is terecht.\"Ze")
         self.assertEqual('ze. "En dat is terecht." Ze', new)
 
+    # def test_trans_with_website_brutal(self):  # todo: too difficult? need to use lib to test if part of valid url?
+    #     new = target("https://ww2.1337x.buzz/")
+    #     self.assertEqual("https://ww2.1337x.buzz/", new)
+
+    # def test_trans_with_website_hard(self):  # todo: make pass (if followed by lowercase letter?)
+    #     new = target("old.reddit.com")
+    #     self.assertEqual('old.reddit.com', new)
+    #
+    # def test_trans_with_website_medium(self):  # todo make pass (following "www"?) or more general: followed by lower
+    #     new = target("www.reddit.com")
+    #     self.assertEqual('www.reddit.com', new)
+
+    def test_trans_with_website_easy(self):  # todo: suffix detection obsolete if generalized to followed by lowercase
+        new = target("reddit.com")
+        self.assertEqual('reddit.com', new)
+
     # todo: the two beneath combined may be a tough cookie to crack?
     # def test_trans_with_word_after_closing_single_quote(self):
     #     new = target("ze.'En dat is terecht.'Ze")
     #     self.assertEqual("ze. 'En dat is terecht.' Ze", new)
 
     def test_trans_with_apostrophe(self):
-        new = "hoe'ist nou?"
+        new = target("hoe'ist nou?")
         self.assertEqual("hoe'ist nou?", new)
+
+    # def test_trans_with_time_dot_notation(self):  # todo: make pass
+    #     new = target("tot 15.00 uur.")
+    #     self.assertEqual("tot 15.00 uur.", new)
+    #
+    # def test_trans_with_time_colon_notation(self):  # todo: make pass
+    #     new = target("tot 15:00 uur.")
+    #     self.assertEqual("tot 15:00 uur.", new)
+

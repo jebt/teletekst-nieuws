@@ -1,4 +1,5 @@
 from text_formatting import transform_to_normal_format
+from enum import Enum
 
 
 class Story:
@@ -9,6 +10,7 @@ class Story:
         self.body = self.extract_body()
         self.formatted_title = transform_to_normal_format(self.title)
         self.formatted_body = transform_to_normal_format(self.body)
+        self.uuid = None
 
     def extract_title(self):
         title = self._raw_text.split(""

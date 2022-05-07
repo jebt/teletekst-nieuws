@@ -12,6 +12,7 @@ import time
 import json
 import snapshot
 from short_story import ShortStory
+from persistence_manager import PersistenceManager
 
 from story import Story
 from selenium.common.exceptions import StaleElementReferenceException
@@ -65,6 +66,9 @@ def bot_cycle():
     fresh_title_body_map = fresh_snapshot_obj.get_title_body_map()
     save_stories(fresh_title_body_map)
     log(f"{len(fresh_title_body_map)=}")
+
+    # assigning uuid to stories
+    PersistenceManager(fresh_snapshot_obj.get_stories()).assign_uuids()
 
     # publishing
     publisher = Publisher(previously_scraped_stories, fresh_snapshot_obj)

@@ -1,3 +1,5 @@
+import difflib
+
 from setup_logger import log
 from story import Story
 
@@ -42,3 +44,7 @@ def split_short_stories_text(text: str) -> list[str]:
         text = "".join([split[0], "", split[i + 1]]) + closer
         short_story_texts.append(text)
     return short_story_texts
+
+
+def similarity_ratio(str1, str2):
+    return difflib.SequenceMatcher(a=str1, b=str2).ratio()

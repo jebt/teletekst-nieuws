@@ -1,4 +1,6 @@
 TODOS:
+# todo: should a story be stored in the snapshot if it is not being published? Should we save a more complicated snapshot that includes whether the story is published or not? to avoid unpredictable behavior. Find out what exactly happened with the KLM strike story that suddenly showed an update with huge edit distance but only 1 character in the title was changed since the last published article. Also: should we have a mechanism that determines the lowest edit distance when compared to every story in the snapshot or does it already work that way? Or if we keep a published flag status in persistence, then the lowest edit distance to any PUBLISHED story since that is what actually matters. If we were to add such a flag to persistence then we should probably keep alot more extra stuff like a list of media to which it is published with edit distances and so on. Should maybe give each story a unique ID like a UUID. and if new stories come in determine if they are just edits of the same story and give them the same ID or if they are entirely new stories and give them a new ID.
+
 # todo: swap files system for database (sqlite)
 # todo: make the merged dict based on time instead of count (e.g. all (meta-)dicts from within the last 48 hours)
 # todo: if a minor change is made to a story, make an edit to the telegram, reddit(,etc) posts. for reddit it might be preferable to edit over repost even if the change is major! for telegram the levenshtein distance threshold for major changes could be raised along with this.
@@ -10,3 +12,41 @@ TODOS:
 # todo: everything to the cloud (google?) (automatically pick up the code from GitHub)
 
 # todo: if every essential feature and bugfixes are done and the bot is running in the cloud smoothly for a while, create new telegram channel and identity for the bot and invite people.
+
+
+persisted_stories_example = {
+    "690e7b7c-e47b-43e0-9b44-b0858710567c": {
+        "latest": {
+            "title": "The Story of the Day",
+            "body": "This is the story of the day",
+            "time": 1650740495.1670108,
+        },
+        "telegram": {
+            "title": "The Story of the Day",
+            "body": "This is the story of the day",
+            "time": 1650722342.0270057,
+        },
+        "reddit": {
+            "title": "The Story of the Day",
+            "body": "This is the story of the day",
+            "time": 1650722394.4197948,
+        },
+    },
+    "b3855b2e-c568-4d15-b3f7-11510f2f9b57": {
+        "latest": {
+            "title": "The Story of the Night",
+            "body": "This is the story of the night",
+            "time": 1650740495.1670108,
+        },
+        "telegram": {
+            "title": "The Story of the Night",
+            "body": "This is the story of the night",
+            "time": 1650722525.6518855,
+        },
+        "reddit": {
+            "title": "The Story of the Night",
+            "body": "This is the story of the night",
+            "time": 1650739426.6797314,
+        },
+    },
+}
