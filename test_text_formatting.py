@@ -87,6 +87,11 @@ faweefweafwef w faew aw""", new)
     #     new = target("ze.'En dat is terecht.'Ze")
     #     self.assertEqual("ze. 'En dat is terecht.' Ze", new)
 
+    # def test_trans_with_website_brutal(self):  # todo: dash at the end of line connecting words (don't add space)
+    #     new = target("""waar vooral ultra-
+    #     orthodoxe Joden wonen.""")
+    #     self.assertEqual("waar vooral ultra-orthdoxe Joden wonen.", new)
+
     def test_trans_with_apostrophe(self):
         new = target("hoe'ist nou?")
         self.assertEqual("hoe'ist nou?", new)
@@ -98,4 +103,3 @@ faweefweafwef w faew aw""", new)
     # def test_trans_with_time_colon_notation(self):  # todo: make pass
     #     new = target("tot 15:00 uur.")
     #     self.assertEqual("tot 15:00 uur.", new)
-

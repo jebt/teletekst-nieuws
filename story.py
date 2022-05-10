@@ -1,5 +1,4 @@
 from text_formatting import transform_to_normal_format
-from enum import Enum
 
 
 class Story:

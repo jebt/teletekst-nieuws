@@ -5,6 +5,9 @@ from selenium.webdriver.common.by import By
 from constants import SELECTOR_PAGE, START_FROM_PAGE, SELECTOR_NEXT
 from setup_logger import logger, log
 
+SHORT_SCRAPING_SLEEP_TIME = 0.5
+LONG_SCRAPING_SLEEP_TIME = 2.5
+
 
 class PageLoader:
     def __init__(self, browser, page):
@@ -22,11 +25,11 @@ class PageLoader:
                 logger.error(f"{self.dots=}, {self.page=}")
                 log(f"Reloading the first story page... ({START_FROM_PAGE=})")
                 self.browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
-                sleep(1)
+                long_scraping_sleep()
             if self.dots % 20 == 0:
                 logger.warning(f"{self.dots=}, {self.page=}")
                 self.try_click_next()
-            sleep(0.1)
+            short_scraping_sleep()
 
     def try_get_page(self):
         try:
@@ -51,3 +54,11 @@ class PageLoader:
                 next_button.click()
             except StaleElementReferenceException:
                 logger.warn("StaleElementReferenceException")
+
+
+def short_scraping_sleep():
+    sleep(SHORT_SCRAPING_SLEEP_TIME)
+
+
+def long_scraping_sleep():
+    sleep(SHORT_SCRAPING_SLEEP_TIME)

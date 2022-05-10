@@ -3,12 +3,11 @@ import logging
 import selenium
 
 from constants import START_FROM_PAGE, SELECTOR_NEXT
-from page_loader import PageLoader
+from page_loader import PageLoader, short_scraping_sleep, long_scraping_sleep
 from publisher import Publisher
 from setup_logger import logger, log
 import os
 import datetime
-import time
 import json
 import snapshot
 from short_story import ShortStory
@@ -55,6 +54,7 @@ def bot_cycle():
     global publish_all_current
 
     # data operations
+    os.makedirs(f"snapshots/merged", exist_ok=True)
     snapshots = [f for f in os.listdir("snapshots") if os.path.isfile(f"snapshots/{f}")]
     if len(snapshots) >= SNAPSHOTS_ARCHIVE_SIZE:
         create_and_save_merged_snapshot(snapshots)
@@ -111,7 +111,7 @@ def scrape_snapshot() -> snapshot:  # todo: refactor
         print(f"{page}", end=".")
         text = try_get_text()
         if not text:
-            time.sleep(0.1)
+            short_scraping_sleep()
             continue
         if is_short_story_page(text):
             short_story_texts = split_short_stories_text(text)
@@ -131,7 +131,7 @@ def scrape_snapshot() -> snapshot:  # todo: refactor
             break
 
         next_button.click()
-        time.sleep(0.1)
+        short_scraping_sleep()
         page_loader = PageLoader(browser, page)
         while page_loader.page == page_loader.prev_page:
             page_loader.load_next_page()
@@ -150,7 +150,7 @@ def load_first_page():
         browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
     except selenium.common.exceptions.WebDriverException as e:
         logger.error(f"Could not load page! {e}")
-    time.sleep(0.5)
+    long_scraping_sleep()
     first_page_load_poll_tries = 0
     while page >= 190:
         first_page_load_poll_tries += 1  # don't start at 0 because of modulo check
@@ -169,12 +169,12 @@ def poll_for_first_page_load(page: int, polling_tries: int):
             browser.get(f"https://nos.nl/teletekst#{START_FROM_PAGE}")
         except selenium.common.exceptions.WebDriverException as e:
             logger.error(f"Could not load page! {e}")
-        time.sleep(1)
+        long_scraping_sleep()
     page_loader = PageLoader(browser, page)
     page_loader.try_get_page()
     if page_loader.page >= 190:
         print(f"{page_loader.page=}")
-        time.sleep(0.1)
+        short_scraping_sleep()
     return page_loader.page
 
 
