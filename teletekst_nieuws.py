@@ -16,7 +16,7 @@ from persistence_manager import PersistenceManager
 from story import Story
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
-from teletekst_nieuws_lib import get_new_browser, is_short_story_page, split_short_stories_text
+from utilities import get_new_browser, split_short_stories_text
 
 abort = False
 publish_all_current = False
@@ -67,8 +67,10 @@ def bot_cycle():
     save_stories(fresh_title_body_map)
     log(f"{len(fresh_title_body_map)=}")
 
-    # assigning uuid to stories
-    PersistenceManager(fresh_snapshot_obj.get_stories()).assign_uuids()
+    # assigning uuid to stories and persist as "latest"
+    persistence_manager = PersistenceManager(fresh_snapshot_obj.get_stories())
+    persistence_manager.assign_uuids()
+    persistence_manager.persist_latest()
 
     # publishing
     publisher = Publisher(previously_scraped_stories, fresh_snapshot_obj)
@@ -113,7 +115,7 @@ def scrape_snapshot() -> snapshot:  # todo: refactor
         if not text:
             short_scraping_sleep()
             continue
-        if is_short_story_page(text):
+        if "kort nieuws" in Story(raw_text=text, page=0).title.lower():
             short_story_texts = split_short_stories_text(text)
             for short_story_text in short_story_texts:
                 fresh_snapshot_obj.add_story(ShortStory(raw_text=short_story_text, page=page))

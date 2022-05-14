@@ -9,3 +9,6 @@ class Medium(ABC):
 
     @abstractmethod
     def notify(self, story: Story): ...
+
+    @abstractmethod
+    def persist(self, story: Story): ...

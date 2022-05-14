@@ -5,7 +5,7 @@ from setup_logger import log
 from snapshot import Snapshot
 from story import Story
 from telegram import Telegram
-from teletekst_nieuws_lib import is_subset
+from utilities import is_subset
 
 scopes = ["everything",
           "new",
@@ -57,6 +57,7 @@ class Publisher:
             if medium is None:
                 continue
             medium.notify(story)
+            medium.persist(story)
 
     def dispatch_update(self, story: Story, ls_dist: int):
         story.formatted_title = story.formatted_title + " (update)"

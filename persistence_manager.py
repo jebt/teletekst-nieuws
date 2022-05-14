@@ -3,7 +3,7 @@ import os
 import uuid as uuid_lib
 
 from story import Story
-from teletekst_nieuws_lib import similarity_ratio
+from utilities import similarity_ratio
 
 SHORT_STORY_RATIO_THRESHOLD = 0.5
 TITLE_RATIO_THRESHOLD = 0  # if body is identical
@@ -80,6 +80,22 @@ class PersistenceManager:
             story.uuid = best_title_body_match
             return
         story.uuid = get_random_uuid()
+
+    def persist_latest(self):
+        from time import time
+        with open("persisted_stories.json", "r") as f:
+            persisted_stories = json.load(f)
+        for story in self.current_stories:
+            if story.uuid not in persisted_stories:
+                persisted_stories[story.uuid] = {}
+            persisted_stories[story.uuid]["latest"] = {
+                "title": story.title,
+                "body": story.body,
+                "time": time(),
+            }
+
+        with open("persisted_stories.json", "w") as f:
+            json.dump(persisted_stories, f, indent=4)
 
 
 def get_random_uuid():

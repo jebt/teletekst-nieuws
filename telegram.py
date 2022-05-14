@@ -1,3 +1,4 @@
+import json
 from time import sleep
 
 import requests
@@ -21,6 +22,19 @@ class Telegram(Medium):
 
     def notify(self, story: Story):
         self.publish_to_telegram(story.formatted_title, story.formatted_body)
+
+    def persist(self, story: Story):
+        from time import time
+        uuid_str = str(story.uuid)
+        with open("persisted_stories.json", "r") as f:
+            stories = json.load(f)
+        stories[uuid_str]["telegram"] = {
+            "title": story.formatted_title,
+            "body": story.formatted_body,
+            "time": time()
+        }
+        with open("persisted_stories.json", "w") as f:
+            json.dump(stories, f, indent=4)
 
     def publish_to_telegram(self, title: str, story: str):
         log(f"Publishing to telegram: {title}")

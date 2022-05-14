@@ -1,7 +1,6 @@
 import difflib
 
 from setup_logger import log
-from story import Story
 
 
 def get_new_browser():
@@ -17,7 +16,7 @@ def get_new_browser():
     options.binary = which("firefox")
     SELENIUM_LOGGER.setLevel(WARNING)
     urllib_logger.setLevel(WARNING)
-    new_browser = webdriver.Firefox(options=options)
+    new_browser = webdriver.Firefox(options=options, service_log_path='./logs/geckodriver.log')
     return new_browser
 
 
@@ -30,10 +29,6 @@ def is_subset(newly_scraped_stories: dict, previously_scraped_stories: dict):
             if new_story != old_story:
                 return False
     return True
-
-
-def is_short_story_page(text: str) -> bool:
-    return "kort nieuws" in Story(raw_text=text, page=0).title.lower()
 
 
 def split_short_stories_text(text: str) -> list[str]:

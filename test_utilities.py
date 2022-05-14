@@ -1,6 +1,6 @@
 # from unittest import TestCase
 
-target = __import__('teletekst_nieuws_lib').split_short_stories_text
+target = __import__('utilities').split_short_stories_text
 
 
 # class Test(TestCase):
