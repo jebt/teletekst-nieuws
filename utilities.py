@@ -4,19 +4,34 @@ from setup_logger import log
 
 
 def get_new_browser():
-    log("Instantiating new headless firefox browser...")
+    use_chrome_for_docker = True
+    if use_chrome_for_docker:
+        browser_used = "chrome"
+    else:
+        browser_used = "firefox"
+    log(f"Instantiating new headless {browser_used} browser...")
     from selenium.webdriver.firefox.options import Options
     from selenium.webdriver.remote.remote_connection import LOGGER as SELENIUM_LOGGER
     from urllib3.connectionpool import log as urllib_logger
     from shutil import which
     from selenium import webdriver
     from logging import WARNING
-    options = Options()
-    options.headless = True
-    options.binary = which("firefox")
     SELENIUM_LOGGER.setLevel(WARNING)
     urllib_logger.setLevel(WARNING)
-    new_browser = webdriver.Firefox(options=options, service_log_path='./logs/geckodriver.log')
+    if use_chrome_for_docker:
+        from webdriver_manager.chrome import ChromeDriverManager
+        import chromedriver_binary  # Adds chromedriver binary to path
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("window-size=1024,768")
+        chrome_options.add_argument("--no-sandbox")
+        new_browser = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+    else:
+        options = Options()
+        options.headless = True
+        options.binary = which("firefox")
+        new_browser = webdriver.Firefox(options=options, service_log_path='./logs/geckodriver.log')
     return new_browser
 
 

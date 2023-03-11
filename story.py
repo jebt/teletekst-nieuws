@@ -17,7 +17,10 @@ class Story:
         return title
 
     def extract_body(self):
-        lines = self._raw_text.split("")[1].split("")[0].split("\n")
+        try:
+            lines = self._raw_text.split("")[1].split("")[0].split("\n")
+        except IndexError:
+            lines = ["something seems to be different about the formatting", ".", ".", "."]
         body = "\n".join([line.strip() for line in lines])[:-2]
         return body
 

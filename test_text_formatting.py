@@ -83,7 +83,7 @@ faweefweafwef w faew aw""", new)
         self.assertEqual('reddit.com', new)
 
     # todo: the two beneath combined may be a tough cookie to crack?
-    # def test_trans_with_word_after_closing_single_quote(self):
+    # def test_trans_with_word_after_closing_single_quote(self):d
     #     new = target("ze.'En dat is terecht.'Ze")
     #     self.assertEqual("ze. 'En dat is terecht.' Ze", new)
 

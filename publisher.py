@@ -1,5 +1,6 @@
 import jellyfish
 
+from deprecated import deprecated
 from constants import LEVENSHTEIN_DISTANCE_THRESHOLD
 from setup_logger import log
 from snapshot import Snapshot
@@ -18,6 +19,7 @@ scopes = ["everything",
           "new_and_all_updates", ]
 
 
+@deprecated
 class Publisher:
     def __init__(self, previously_scraped_stories: dict, fresh_snapshot_obj: Snapshot):
         self.previously_scraped_stories = previously_scraped_stories
@@ -37,6 +39,7 @@ class Publisher:
     def unregister_medium(self, medium):
         self.media.remove(medium)
 
+    @deprecated("to publish or not logic should be moved to Medium class (like Telegram)")
     def publish(self, scope="new_and_major_updates"):
         if scope not in scopes:
             raise Exception("Invalid scope")
@@ -51,21 +54,6 @@ class Publisher:
     def publish_current(self):
         for story in self.fresh_snapshot_obj.stories:
             self.dispatch_new(story)
-
-    def dispatch_new(self, story: Story):
-        for medium in self.media:
-            if medium is None:
-                continue
-            medium.notify(story)
-            medium.persist(story)
-
-    def dispatch_update(self, story: Story, ls_dist: int):
-        story.formatted_title = story.formatted_title + " (update)"
-        story.formatted_body = story.formatted_body + f"\n\n(Levenshtein edit distance: {ls_dist} operations)"
-        for medium in self.media:
-            if medium is None:
-                continue
-            medium.notify(story)
 
     def publish_new_and_major_updates(self):  # todo: refactor
         fresh_title_body_map = self.fresh_snapshot_obj.get_title_body_map()
@@ -97,7 +85,23 @@ class Publisher:
                                 log(f"{new_title} got a major update ({ls_dist=})")
                                 self.dispatch_update(story, ls_dist)
 
+    def dispatch_new(self, story: Story):
+        for medium in self.media:
+            if medium is None:
+                continue
+            medium.notify(story)
+            medium.persist(story)
 
+    def dispatch_update(self, story: Story, ls_dist: int):
+        story.formatted_title = story.formatted_title + " (update)"
+        story.formatted_body = story.formatted_body + f"\n\n(Levenshtein edit distance: {ls_dist} operations)"
+        for medium in self.media:
+            if medium is None:
+                continue
+            medium.notify(story)
+
+
+@deprecated
 def is_duplicate_or_minor_update(new_title: str, new_body: str, previously_scraped: dict) -> tuple[bool, bool]:
     duplicate = False
     minor_update = False

@@ -19,7 +19,7 @@ from selenium.webdriver.common.by import By
 from utilities import get_new_browser, split_short_stories_text
 
 abort = False
-publish_all_current = False
+publish_all_current = True
 browser = get_new_browser()
 LOAD_NUMBER_OF_MERGED_SNAPSHOTS = 5
 SNAPSHOTS_ARCHIVE_SIZE = 1000  # todo: make time based (for example daily)
