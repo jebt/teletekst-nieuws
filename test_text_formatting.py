@@ -96,9 +96,14 @@ faweefweafwef w faew aw""", new)
         new = target("hoe'ist nou?")
         self.assertEqual("hoe'ist nou?", new)
 
-    # def test_trans_with_time_dot_notation(self):  # todo: make pass
-    #     new = target("tot 15.00 uur.")
-    #     self.assertEqual("tot 15.00 uur.", new)
+    def test_trans_with_time_dot_notation(self):  # todo: make pass
+        new = target("tot 15.00 uur.")
+        self.assertEqual("tot 15.00 uur.", new)
+
+    def test_trans_with_time_dot_notation_short(self):  # todo: make pass
+        new = target("20.30u")
+        self.assertEqual("20.30u", new)
+
     #
     # def test_trans_with_time_colon_notation(self):  # todo: make pass
     #     new = target("tot 15:00 uur.")

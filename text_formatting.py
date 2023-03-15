@@ -8,7 +8,7 @@ def _is_closing_quote(char, index, text):
     return False
 
 
-def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor with regex and 3rd party libs?
+def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor with regex (and 3rd party libs)?
     lines = tt_format_text.split("\n")
     for i, line in enumerate(lines):
         if line.strip() == "":
@@ -61,6 +61,17 @@ def transform_to_normal_format(tt_format_text: str) -> str:  # todo: refactor wi
         # ignore '.', '!' and '?' when followed by closing "'" or '"' quotation mark e.g. "Hello!"
         elif character in ".!?" and (compact_text[i + 1] in "'\"" and
                                      _is_closing_quote(compact_text[i + 1], i + 1, compact_text)):
+            continue
+
+        # ignore '.' in time notation e.g. "20.30u" and "21.40 uur"
+        elif character == "." and i > 1 and (compact_text[i - 1] in numbers and
+                                           compact_text[i - 2] in numbers and
+                                           compact_text[i + 1] in numbers and
+                                           compact_text[i + 2] in numbers and
+                                             (compact_text[i + 3] == "u" or (compact_text[i + 3] == " " and
+                                                                             compact_text[i + 4] == "u" and
+                                                                             compact_text[i + 5] == "u" and
+                                                                             compact_text[i + 6] == "r"))):
             continue
 
         # put in a space after .,!?;: if followed by something other than whitespace
